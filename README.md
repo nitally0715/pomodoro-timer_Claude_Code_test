@@ -1,7 +1,7 @@
 # 🍅 Pomodoro Timer
 
 > **Claude Code 연구 목적으로 제작된 베타 프로젝트입니다.**  
-> Claude AI와의 대화만으로 웹앱을 만들고 GitHub Pages에 배포하는 과정을 테스트했습니다.
+> 이 프로젝트는 **Claude AI (claude.ai)** 와의 대화를 통해 코드를 생성하고, GitHub Pages로 배포하는 전 과정을 테스트하기 위해 만들어졌습니다.
 
 ---
 
@@ -26,20 +26,6 @@
 - HTML / CSS / Vanilla JS (외부 라이브러리 없음)
 - Google Fonts (DM Mono, Instrument Serif)
 - GitHub Pages로 배포
-
----
-
-## 🤖 제작 방식
-
-이 프로젝트는 **Claude AI (claude.ai)** 와의 대화를 통해 코드를 생성하고, GitHub Pages로 배포하는 전 과정을 테스트하기 위해 만들어졌습니다.
-
-```
-사용자: "웹페이지 하나 만들어서 배포까지 해볼까?"
-Claude: 포모도로 타이머를 추천 → 코드 생성 → 배포 가이드 제공
-소요 시간: 약 5분
-```
-
-Claude Code, Claude.ai 등 Anthropic 제품군의 실용성을 검증하는 개인 연구 프로젝트의 일환입니다.
 
 ---
 
