@@ -51,4 +51,3 @@ open index.html  # macOS
 
 ---
 
-*Made with [Claude](https://claude.ai) · Deployed on GitHub Pages*
