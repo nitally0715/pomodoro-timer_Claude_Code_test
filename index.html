@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>포모도로 타이머</title>
+  <style>
+    @font-face {
+      font-family: 'A2z';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-1Thin.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0f;
+      --surface: #18181b;
+      --border: #2a2a2e;
+      --text: #f0ede8;
+      --muted: #6b6b70;
+      --accent: #e85d3a;
+      --accent2: #f0a070;
+      --green: #4ade80;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'A2z', monospace;
+      font-weight: bold;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    button { font-family: inherit; font-weight: inherit; }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.4;
+    }
+
+    /* Ambient glow */
+    .glow {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,93,58,0.08) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: background 1s ease;
+    }
+    .glow.rest {
+      background: radial-gradient(circle, rgba(74,222,128,0.07) 0%, transparent 70%);
+    }
+
+    .container {
+      position: relative;
+      width: 480px;
+      padding: 52px 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 40px;
+    }
+    .logo {
+      font-family: 'A2z', monospace;
+      font-style: italic;
+      font-size: 26px;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    .session-count {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    .session-dots {
+      display: flex;
+      gap: 5px;
+      margin-top: 6px;
+      justify-content: flex-end;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      transition: background 0.3s;
+    }
+    .dot.filled {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Mode tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 36px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 0;
+      font-family: 'A2z', monospace;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab:not(:last-child) {
+      border-right: 1px solid var(--border);
+    }
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .tab.active.rest {
+      background: var(--green);
+      color: #000;
+    }
+
+    /* Timer ring */
+    .timer-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin: 0 auto 40px;
+    }
+    .ring-svg {
+      position: absolute;
+      inset: 0;
+      transform: rotate(-90deg);
+    }
+    .ring-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 2;
+    }
+    .ring-progress {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 616;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear, stroke 0.5s ease;
+    }
+    .ring-progress.rest {
+      stroke: var(--green);
+    }
+    .timer-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .time-display {
+      font-size: 62px;
+      letter-spacing: -2px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .mode-label {
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    .btn-main {
+      width: 140px;
+      height: 50px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      font-family: 'A2z', monospace;
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-main:hover { opacity: 0.85; }
+    .btn-main.rest { background: var(--green); color: #000; }
+    .btn-icon {
+      width: 50px;
+      height: 50px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .btn-icon:hover { border-color: var(--text); color: var(--text); }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-val {
+      font-size: 24px;
+      color: var(--text);
+    }
+    .stat-label {
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .divider {
+      width: 1px;
+      height: 32px;
+      background: var(--border);
+    }
+
+    /* Reset stats button */
+    .reset-stats {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .btn-reset {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      font-family: 'A2z', monospace;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Notification */
+    .notif {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text);
+      color: var(--bg);
+      padding: 12px 24px;
+      border-radius: 3px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+      z-index: 200;
+    }
+    .notif.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="glow" id="glow"></div>
+
+  <div class="container">
+    <div class="header">
+      <div class="logo">pomodoro.</div>
+      <div>
+        <div class="session-count" id="sessionLabel">세션 0 / 4</div>
+        <div class="session-dots" id="dots"></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tabWork" onclick="switchMode('work')">집중</button>
+      <button class="tab" id="tabShort" onclick="switchMode('short')">짧은 휴식</button>
+      <button class="tab" id="tabLong" onclick="switchMode('long')">긴 휴식</button>
+    </div>
+
+    <div class="timer-wrap">
+      <svg class="ring-svg" viewBox="0 0 220 220">
+        <circle class="ring-bg" cx="110" cy="110" r="98"/>
+        <circle class="ring-progress" id="ring" cx="110" cy="110" r="98"/>
+      </svg>
+      <div class="timer-inner">
+        <div class="time-display" id="timeDisplay">25:00</div>
+        <div class="mode-label" id="modeLabel">집중 시간</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-icon" onclick="resetTimer()" title="초기화">↺</button>
+      <button class="btn-main" id="mainBtn" onclick="toggleTimer()">시작</button>
+      <button class="btn-icon" onclick="skipTimer()" title="건너뛰기">→</button>
+    </div>
+
+    <div class="footer">
+      <div class="stat">
+        <div class="stat-val" id="statFocus">0</div>
+        <div class="stat-label">완료 세션</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat">
+        <div class="stat-val" id="statTime">0m</div>
+        <div class="stat-label">집중 시간</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat">
+        <div class="stat-val" id="statStreak">0</div>
+        <div class="stat-label">연속 세션</div>
+      </div>
+    </div>
+    <div class="reset-stats">
+      <button class="btn-reset" onclick="resetStats()">↺ 세션 초기화</button>
+    </div>
+  </div>
+
+  <div class="notif" id="notif"></div>
+
+  <script>
+    const MODES = {
+      work:  { label: '집중 시간', seconds: 25 * 60, tab: 'tabWork' },
+      short: { label: '짧은 휴식', seconds: 5 * 60,  tab: 'tabShort' },
+      long:  { label: '긴 휴식',   seconds: 15 * 60, tab: 'tabLong' }
+    };
+
+    let mode = 'work';
+    let remaining = MODES.work.seconds;
+    let total = MODES.work.seconds;
+    let running = false;
+    let interval = null;
+    let sessions = 0;
+    let streak = 0;
+    let focusMinutes = 0;
+
+    const CIRCUMFERENCE = 2 * Math.PI * 98; // ~616
+
+    function fmt(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    }
+
+    function updateRing() {
+      const pct = remaining / total;
+      const offset = CIRCUMFERENCE * (1 - pct);
+      document.getElementById('ring').style.strokeDashoffset = offset;
+    }
+
+    function updateDisplay() {
+      document.getElementById('timeDisplay').textContent = fmt(remaining);
+      updateRing();
+    }
+
+    function updateDots() {
+      const container = document.getElementById('dots');
+      container.innerHTML = '';
+      for (let i = 0; i < 4; i++) {
+        const d = document.createElement('div');
+        d.className = 'dot' + (i < sessions % 5 ? ' filled' : '');
+        container.appendChild(d);
+      }
+      document.getElementById('sessionLabel').textContent = `세션 ${sessions} / 4`;
+    }
+
+    function isRest() { return mode === 'short' || mode === 'long'; }
+
+    function setRestStyle(rest) {
+      const ring = document.getElementById('ring');
+      const btn = document.getElementById('mainBtn');
+      const glow = document.getElementById('glow');
+      const tabs = document.querySelectorAll('.tab.active');
+      ring.className = 'ring-progress' + (rest ? ' rest' : '');
+      btn.className = 'btn-main' + (rest ? ' rest' : '');
+      glow.className = 'glow' + (rest ? ' rest' : '');
+    }
+
+    function switchMode(m) {
+      stopTimer();
+      mode = m;
+      remaining = MODES[m].seconds;
+      total = MODES[m].seconds;
+      document.getElementById('modeLabel').textContent = MODES[m].label;
+      document.getElementById('mainBtn').textContent = '시작';
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const activeTab = document.getElementById(MODES[m].tab);
+      activeTab.classList.add('active');
+      if (isRest()) activeTab.classList.add('rest');
+      else activeTab.classList.remove('rest');
+      setRestStyle(isRest());
+      updateDisplay();
+    }
+
+    function toggleTimer() {
+      if (running) {
+        stopTimer();
+        document.getElementById('mainBtn').textContent = '재개';
+      } else {
+        startTimer();
+        document.getElementById('mainBtn').textContent = '일시정지';
+      }
+    }
+
+    function startTimer() {
+      running = true;
+      interval = setInterval(() => {
+        remaining--;
+        updateDisplay();
+        if (remaining <= 0) {
+          clearInterval(interval);
+          running = false;
+          onComplete();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      running = false;
+      clearInterval(interval);
+    }
+
+    function resetTimer() {
+      stopTimer();
+      remaining = MODES[mode].seconds;
+      document.getElementById('mainBtn').textContent = '시작';
+      updateDisplay();
+    }
+
+    function skipTimer() {
+      stopTimer();
+      onComplete();
+    }
+
+    function onComplete() {
+      if (mode === 'work') {
+        sessions++;
+        streak++;
+        focusMinutes += 25;
+        document.getElementById('statFocus').textContent = sessions;
+        document.getElementById('statTime').textContent = focusMinutes + 'm';
+        document.getElementById('statStreak').textContent = streak;
+        updateDots();
+        showNotif('🍅 집중 완료! 휴식을 취하세요.');
+        if (sessions % 4 === 0) switchMode('long');
+        else switchMode('short');
+      } else {
+        showNotif('✨ 휴식 끝! 다시 집중해봐요.');
+        streak = 0;
+        switchMode('work');
+      }
+    }
+
+    function resetStats() {
+      sessions = 0;
+      streak = 0;
+      focusMinutes = 0;
+      document.getElementById('statFocus').textContent = 0;
+      document.getElementById('statTime').textContent = '0m';
+      document.getElementById('statStreak').textContent = 0;
+      updateDots();
+      showNotif('세션 기록이 초기화되었습니다.');
+    }
+
+    function showNotif(msg) {
+      const el = document.getElementById('notif');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 3500);
+    }
+
+    // Init
+    updateDisplay();
+    updateDots();
+  </script>
+</body>
+</html>
